@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"/>
+<title>for you</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,9..144,100,900&family=Instrument+Serif:ital@0;1&family=Newsreader:opsz,ital,wght@6..72,0,300;6..72,1,300&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#121214;
+    --paper:#FFFCF6;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0a0a12}
+  body{
+    font-family:"Instrument Serif", serif;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    color:var(--ink);
+    overscroll-behavior:none;
+    user-select:none;
+  }
+
+  /* REALISTIC SKY - layered, not flat gradient */
+  #sky{
+    position:fixed; inset:0; z-index:0;
+    background:#0a0a12;
+    transition: background 1.8s cubic-bezier(.16,1,.3,1);
+  }
+  #sky::before{
+    content:""; position:absolute; inset:0;
+    background: radial-gradient(120% 75% at 50% 18%, #FFE9A8 0%, #FFBB7A 16%, #FF7D6E 30%, #E76AA3 46%, #8B6BC4 66%, #2D2A5A 82%, #0F0F1E 100%);
+    transition: opacity 1.6s ease, transform 1.8s cubic-bezier(.16,1,.3,1);
+    will-change: opacity, transform;
+  }
+  #sky::after{
+    content:""; position:absolute; inset:0;
+    background: radial-gradient(90% 60% at 50% 0%, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 55%);
+    opacity:.6; mix-blend-mode:overlay;
+  }
+  #sky.is-night::before{
+    background: radial-gradient(130% 85% at 50% -10%, #1A1A3A 0%, #14142A 30%, #0E0E1E 65%, #080810 100%);
+    transform: scale(1.05);
+  }
+  #sky.is-dawn::before{
+    background: radial-gradient(130% 85% at 50% 90%, #FFF4C1 0%, #FFD19A 18%, #FF8E8A 36%, #C98DBE 58%, #7A6BC4 78%, #2D2A5A 92%, #0F0F1E 100%);
+  }
+
+  /* REAL SUN - volumetric, not a flat circle */
+  #sun-wrap{
+    position:fixed; left:50%; top:30%; z-index:1;
+    width:min(72vw,520px); height:min(72vw,520px);
+    transform: translate(-50%,-50%);
+    pointer-events:none;
+    transition: top 2s cubic-bezier(.16,1,.3,1), transform 2s cubic-bezier(.16,1,.3,1), opacity 1s ease;
+    will-change: top, transform;
+  }
+  #sun-core{
+    position:absolute; inset:22%; border-radius:50%;
+    background: radial-gradient(35% 35% at 30% 30%, #FFFFF5 0%, #FFFECC 12%, #FFED9E 26%, #FFC57A 48%, #FF7D4A 78%);
+    box-shadow: 0 0 60px 10px rgba(255,210,120,.7), 0 0 140px 30px rgba(255,140,90,.32);
+  }
+  #sun-glow{
+    position:absolute; inset:0; border-radius:50%;
+    background: radial-gradient(60% 60% at 50% 50%, rgba(255,220,120,.55) 0%, rgba(255,160,90,.18) 28%, rgba(255,100,80,0) 72%);
+    filter: blur(18px);
+    animation: glowPulse 4s ease-in-out infinite;
+  }
+  #sun-halo{
+    position:absolute; inset:-12%; border-radius:50%;
+    background: radial-gradient(60% 60% at 50% 50%, rgba(255,210,120,.18) 0%, rgba(0,0,0,0) 70%);
+    filter: blur(28px);
+  }
+  @keyframes glowPulse{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.06);opacity:1}}
+  @keyframes breathe{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.03)}}
+  #sun-wrap.breathe{animation: breathe 5s ease-in-out infinite}
+
+  /* haze / light scattering - realism */
+  #haze{
+    position:fixed; inset:0; z-index:2; pointer-events:none;
+    background: radial-gradient(80% 50% at 50% 25%, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 60%);
+    mix-blend-mode: soft-light;
+    opacity:.7; transition: opacity 1.2s ease;
+  }
+
+  /* stars - realistic */
+  #stars{position:fixed; inset:0; z-index:2; pointer-events:none; opacity:0; transition: opacity 1.5s ease}
+  #stars.on{opacity:1}
+
+  /* grain - ultra subtle, not old */
+  #grain{
+    position:fixed; inset:0; z-index:9; pointer-events:none; opacity:.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  #vignette{
+    position:fixed; inset:0; z-index:8; pointer-events:none;
+    background: radial-gradient(120% 120% at 50% 50%, rgba(0,0,0,0) 58%, rgba(0,0,0,.22) 100%);
+  }
+
+  /* CONTENT */
+  .wrap{
+    position:relative; z-index:5;
+    width:100%; height:100%; height:100dvh;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    padding: max(18px, env(safe-area-inset-top)) 20px max(18px, env(safe-area-inset-bottom));
+  }
+  .phone{
+    width:100%; max-width:390px; height:100%;
+    display:flex; flex-direction:column;
+    position:relative;
+  }
+
+  /* progress line - minimal, modern */
+  #progress{
+    position:absolute; top:0; left:0; right:0; height:2px; z-index:10;
+    background: rgba(0,0,0,.08);
+    overflow:hidden; border-radius:2px;
+  }
+  #progress-bar{
+    height:100%; width:0%;
+    background: linear-gradient(90deg, #FFB26A, #FF6A8A);
+    transition: width .9s cubic-bezier(.16,1,.3,1);
+    box-shadow: 0 0 10px rgba(255,120,120,.4);
+  }
+
+  #content{
+    flex:1; width:100%;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    text-align:center;
+    position:relative;
+  }
+
+  /* hero */
+  .hero{
+    will-change: transform, opacity;
+  }
+  .hero-hi{
+    font-family:"Fraunces", serif;
+    font-weight:900; font-style:italic;
+    font-size: clamp(54px, 14vw, 74px);
+    line-height:.9; letter-spacing:-.04em;
+    color:#17130e;
+    text-shadow: 0 1px 0 rgba(255,255,255,.6), 0 8px 24px rgba(120,60,20,.18);
+  }
+  .hero-sub{
+    margin-top:14px;
+    font-family:"Newsreader", serif;
+    font-weight:300; font-style:italic;
+    font-size:17px; line-height:1.4;
+    color: rgba(23,19,14,.68);
+    letter-spacing:.01em;
+  }
+
+  /* text card - glass + realism */
+  .card{
+    width:100%;
+    background: rgba(255,252,246,.84);
+    backdrop-filter: blur(24px) saturate(1.2);
+    -webkit-backdrop-filter: blur(24px) saturate(1.2);
+    border: 1px solid rgba(255,255,255,.6);
+    border-radius: 24px;
+    padding: 26px 24px 22px;
+    box-shadow: 
+      0 1px 0 rgba(255,255,255,.8) inset,
+      0 8px 32px rgba(60,30,10,.10),
+      0 32px 80px rgba(60,30,10,.08);
+    text-align:left;
+    transform-origin: center bottom;
+    will-change: transform, opacity, filter;
+  }
+  .card p{
+    font-family:"Instrument Serif", serif;
+    font-size: 19.5px;
+    line-height: 1.55;
+    letter-spacing: -.01em;
+    color: #1a1816;
+  }
+  .card p + p{ margin-top:14px; }
+  .card .soft{
+    color: rgba(26,24,22,.62);
+  }
+
+  /* verse - absolute center, holy */
+  .verse-wrap{
+    text-align:center;
+  }
+  .verse-label{
+    font-family:"Newsreader", serif;
+    font-weight:300; font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color: rgba(255,255,255,.55); margin-bottom:18px;
+  }
+  .verse-text{
+    font-family:"Fraunces", serif;
+    font-weight:100; font-variation-settings: "WONK" 1;
+    font-size: clamp(26px, 6.5vw, 32px);
+    line-height:1.25; letter-spacing:-.02em;
+    color: #FFFCF6;
+    text-shadow: 0 2px 20px rgba(0,0,0,.4);
+    max-width: 18ch;
+  }
+  .verse-ref{
+    margin-top:16px;
+    font-family:"Instrument Serif", serif; font-style:italic;
+    font-size:18px; color: rgba(255,252,246,.7);
+  }
+
+  /* finale */
+  .finale-huge{
+    font-family:"Fraunces", serif;
+    font-weight:900; font-style:italic;
+    font-size: clamp(32px, 8.5vw, 42px);
+    line-height:.95; letter-spacing:-.04em;
+    color:#17130e;
+    text-align:center;
+    text-shadow: 0 1px 0 rgba(255,255,255,.7);
+  }
+  .finale-huge i{ font-variation-settings:"WONK" 1; font-weight:100; display:block; font-style:italic; font-size: .9em; margin-top:6px; }
+
+  /* hint - no text, just light */
+  #hint{
+    position:absolute; bottom:22px; left:50%; transform:translateX(-50%);
+    width:42px; height:42px; border-radius:50%;
+    background: rgba(255,252,246,.72);
+    backdrop-filter: blur(12px);
+    border:1px solid rgba(255,255,255,.7);
+    display:grid; place-items:center;
+    box-shadow: 0 4px 18px rgba(60,30,10,.12);
+    opacity:.9;
+    transition: transform .6s cubic-bezier(.16,1,.3,1), opacity .6s ease;
+    animation: hintFloat 2.8s ease-in-out infinite;
+  }
+  #hint::after{
+    content:""; width:10px; height:10px;
+    border-right:1.5px solid #1a1816; border-bottom:1.5px solid #1a1816;
+    transform: rotate(45deg) translateY(-2px);
+    opacity:.7;
+  }
+  @keyframes hintFloat{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(4px)}}
+  #hint.hide{opacity:0; transform:translateX(-50%) translateY(12px) scale(.9); pointer-events:none}
+
+  /* animations */
+  .in{
+    animation: in .9s cubic-bezier(.16,1,.3,1) both;
+  }
+  @keyframes in{
+    from{opacity:0; transform: translateY(22px) scale(.985); filter: blur(10px);}
+    to{opacity:1; transform: translateY(0) scale(1); filter: blur(0);}
+  }
+  .out{
+    animation: out .55s cubic-bezier(.4,0,.2,1) both;
+  }
+  @keyframes out{
+    from{opacity:1; transform: translateY(0) scale(1); filter: blur(0);}
+    to{opacity:0; transform: translateY(-18px) scale(.985); filter: blur(8px);}
+  }
+
+  /* shooting star */
+  .shoot{
+    position:fixed; z-index:3; pointer-events:none;
+    width:120px; height:1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.9));
+    transform: rotate(-18deg);
+    opacity:0;
+  }
+</style>
+</head>
+<body>
+
+<div id="sky"></div>
+<div id="sun-wrap" class="breathe">
+  <div id="sun-halo"></div>
+  <div id="sun-glow"></div>
+  <div id="sun-core"></div>
+</div>
+<div id="haze"></div>
+<canvas id="stars"></canvas>
+<div id="grain"></div>
+<div id="vignette"></div>
+
+<div class="wrap">
+  <div class="phone">
+    <div id="progress"><div id="progress-bar"></div></div>
+    <div id="content"></div>
+    <div id="hint"></div>
+  </div>
+</div>
+
+<script>
+const paragraphs = [
+  { type:"hero", hi:"Heyy :DD ❤", sub:"thank you so much for opening this" },
+
+  { type:"text", text:"I've been noticing you today, and I feel like you haven't really been at your best. I don't think it's just because you haven't been getting enough sleep, but then again, I don't want to assume anything." },
+
+  { type:"text", text:"I may not know what's causing you to feel this way, and I know I might not be able to fully understand what you're going through, but that doesn't mean I won't try. I want you to know that there are people out there who genuinely care about you and love you, and I hope you never feel like you have to hide your sadness behind a smile. You don't always have to pretend to be okay, especially around the people who care about you." },
+
+  { type:"text", text:"I know this might be a little personal, but may I ask what's been bothering you lately? If you're comfortable sharing it with me, I'd be more than willing to listen. You don't have to explain everything all at once, and it's completely okay if you're not ready to talk about it. I won't force you to tell me anything. I just want you to know that I'm here, and I'll listen whenever you're ready." },
+
+  { type:"text", text:"And if what's been bothering you has something to do with school, your grades, your family, or the expectations that other people have for you, I hope you know that you don't have to carry all of that weight alone. I know that sometimes, the pressure to do well academically can be exhausting, especially when you feel like you always have to meet certain expectations or prove that you're doing your best. Sometimes, even when you're trying your hardest, it can still feel like you're not doing enough, and I hope you never let those thoughts make you forget how much you're already worth." },
+
+  { type:"text", text:"And if it's something happening within your family, something you can't easily talk about, or something that makes you feel like you have nowhere to let your feelings out, I'm sorry you're going through that. I know I can't change everything that's happening around you, and I might not always know the right words to say, but I want you to know that you don't have to pretend to be okay with me. You can tell me about the things that make you happy, but you can also tell me about the things that hurt you. You don't have to be strong every single day, and you don't have to figure everything out all at once." },
+
+  { type:"text", text:"Please remember that your grades don't define your worth, other people's expectations don't determine your value, and having a difficult time doesn't make you a failure. You're still growing, still learning, and still figuring things out, just like everyone else. You deserve rest without feeling guilty, happiness without having to earn it, and love even on the days when you feel like you're not doing enough." },
+
+  { type:"text", text:"Whatever it is that's weighing on your heart, I hope you give yourself the same kindness that you give to other people. And if you ever feel like everything is becoming too much, I hope you remember that you can take things one step at a time. You don't have to solve every problem today. For now, it's okay to breathe, to rest, and to let yourself feel whatever you're feeling. I'll never expect you to have everything figured out. I just hope you won't be too hard on yourself, because you're someone who deserves patience, understanding, and so much love." },
+
+  { type:"text", text:"I'm sorry that I can't give you physical gifts or be there beside you whenever you need someone. For now, all I can really give you are these little virtual websites and messages, and I know they might not be enough to make everything feel better. But I hope that, somehow, through these little things and through my words, you can feel the sincerity of my care for you. Even if I can't be there physically, I still want to make you feel that you're not alone." },
+
+  { type:"text", text:"And please, never forget how beautiful you are, especially when you smile. :DD Your smile has this way of making you look so genuinely happy, and I really, really love seeing that side of you. But please remember that you don't have to smile just to make other people happy. You're allowed to have bad days, too. You deserve to be comforted, understood, and cared for just as much as anyone else. I'm proud of you, not only for the happy moments you show everyone, but also for the difficult moments you might be facing silently." },
+
+  { type:"text", text:"I'm sorry if there are any typos here. I'm literally shaking while typing this. :pp I just have so many things I want to tell you, and I don't even know how to put all of them into words properly." },
+
+  { type:"verse", label:"for when it feels heavy", verse:"The Lord is close to the brokenhearted and saves those who are crushed in spirit.", ref:"Psalm 34:18" },
+
+  { type:"text", text:"Remember that even in moments when your heart feels heavy, you are never beyond God's love and comfort. Even when you don't have the words to explain what you're feeling, I hope you can find a little peace in knowing that He is near. You don't have to go through every difficult moment believing that you're alone, because I hope you'll remember that God sees the things you don't always show other people, too." },
+
+  { type:"text", text:"I'm sorry if there are times when I fail to notice that something is wrong. I'm sorry if I ever do something that upsets you, makes you overthink, or changes your mood without me realizing it. And I'm sorry if there are moments when my words aren't enough to make you feel better. Sometimes, I wish I knew exactly what to say or do to make things easier for you, but I know I can't always fix everything. Still, I want to keep learning how to understand you better, how to be there for you, and how to show you that you matter to me." },
+
+  { type:"text", text:"And I'm sorry if I keep saying sorry without always knowing how to make things right. I don't want my apologies to be just words. I want my actions to show you that I genuinely care." },
+
+  { type:"text", text:"Please be gentle with yourself tomorrow, okay? You don't have to force yourself to be happy every single second. If tomorrow is a good day, I hope you enjoy every little moment of it. And if it isn't, I hope you remember that one difficult day doesn't make your life any less beautiful. You deserve happiness, peace, and all the little things that make your heart feel lighter." },
+
+  { type:"text", text:"Your happiness has this glow that I can't really explain. I love seeing you happy, I love seeing you smile, and I love seeing you enjoy the little things. I hope life gives you more reasons to smile, and I hope you never feel like you have to face every difficult moment on your own." },
+
+  { type:"finale", huge:"there's nobody else.<i>It's you, and it's only you.</i>", sub:"I never want my actions or the things I fail to say to make you question how much you mean to me. I love you, and I hope I can continue showing you that through more than just words." },
+
+  { type:"text", text:"Everything about you is so unexplainably beautiful to me, even the little things you might not notice about yourself. And I hope that, on the days when you find it difficult to see the good in yourself, you'll remember that someone out here sees so much beauty in you." },
+
+  { type:"text", text:"You don't have to be okay all the time. You don't have to hide what you feel. You don't have to prove your worth through your achievements, and you don't have to earn the care and love that you deserve." },
+
+  { type:"text", text:"Take care of yourself, okay? Please don't forget to rest, eat properly, and give yourself time to breathe, especially when life gets overwhelming. I might not always know when you're struggling, but I hope you know that you can reach out to me whenever you need someone to listen." },
+
+  { type:"text", text:"I'll always be rooting for you, in your happiest moments and even in the moments when you're struggling to find a reason to smile. I'm proud of you for being here, for continuing to try, and for being the person you are." },
+
+  { type:"hero", hi:"I love you so much.", sub:"Please take care of that beautiful heart of yours. You deserve so much happiness, peace, and love, today and every day after. :DD ❤" }
+];
+
+let idx = 0;
+const content = document.getElementById('content');
+const sky = document.getElementById('sky');
+const sunWrap = document.getElementById('sun-wrap');
+const starsCanvas = document.getElementById('stars');
+const hint = document.getElementById('hint');
+const progressBar = document.getElementById('progress-bar');
+const ctx = starsCanvas.getContext('2d');
+let stars = [];
+let animId;
+
+function resize(){
+  starsCanvas.width = innerWidth * devicePixelRatio;
+  starsCanvas.height = innerHeight * devicePixelRatio;
+  starsCanvas.style.width = innerWidth+'px';
+  starsCanvas.style.height = innerHeight+'px';
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  initStars();
+}
+function initStars(){
+  stars = [];
+  for(let i=0;i<120;i++){
+    stars.push({
+      x: Math.random()*innerWidth,
+      y: Math.random()*innerHeight*0.85,
+      r: Math.random()*1.4 + (Math.random()>.9?1.2:0),
+      tw: Math.random()*3+1,
+      o: Math.random()*.6+.2
+    });
+  }
+}
+function drawStars(t){
+  ctx.clearRect(0,0,innerWidth,innerHeight);
+  for(const s of stars){
+    const tw = 0.6 + Math.sin(t*0.001*s.tw)*0.4;
+    ctx.globalAlpha = s.o * tw;
+    ctx.fillStyle = "#FFFCF6";
+    ctx.shadowBlur = s.r>1.5 ? 8 : 0;
+    ctx.shadowColor = "#FFD9A8";
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+  animId = requestAnimationFrame(drawStars);
+}
+
+function render(i, dir=1){
+  const data = paragraphs[i];
+  const el = document.createElement('div');
+  el.style.width='100%';
+  
+  if(data.type==='hero'){
+    el.innerHTML = `<div class="hero in"><div class="hero-hi">${data.hi}</div><div class="hero-sub">${data.sub}</div></div>`;
+  } else if(data.type==='text'){
+    el.innerHTML = `<div class="card in"><p>${data.text}</p></div>`;
+  } else if(data.type==='verse'){
+    el.innerHTML = `<div class="verse-wrap in"><div class="verse-label">${data.label}</div><div class="verse-text">“${data.verse}”</div><div class="verse-ref">${data.ref}</div></div>`;
+  } else if(data.type==='finale'){
+    el.innerHTML = `<div class="in"><div class="finale-huge">${data.huge}</div><div style="margin-top:18px" class="card"><p>${data.sub}</p></div></div>`;
+  }
+
+  // smooth swap
+  if(content.firstChild){
+    content.firstChild.classList.remove('in');
+    content.firstChild.classList.add('out');
+    setTimeout(()=>{ content.innerHTML=''; content.appendChild(el); }, 260);
+  } else {
+    content.appendChild(el);
+  }
+
+  // sky + sun + stars logic for realism
+  const p = i / (paragraphs.length-1);
+  progressBar.style.width = (p*100)+'%';
+
+  if(p < 0.45){
+    sky.className = '';
+    sunWrap.style.top = (32 + p*40) + '%';
+    sunWrap.style.opacity = '1';
+    starsCanvas.classList.remove('show');
+    document.getElementById('haze').style.opacity = .7;
+  } else if(p < 0.72){
+    sky.className = 'is-night';
+    sunWrap.style.top = '110%';
+    sunWrap.style.opacity = '0';
+    starsCanvas.classList.add('show');
+    document.getElementById('haze').style.opacity = '0';
+    if(Math.random()>.6) spawnShoot();
+  } else {
+    sky.className = 'is-dawn';
+    sunWrap.style.top = (108 - (p-0.72)*260) + '%';
+    sunWrap.style.opacity = String((p-0.72)*3);
+    starsCanvas.classList.remove('show');
+    document.getElementById('haze').style.opacity = .5;
+  }
+}
+
+function spawnShoot(){
+  const s = document.createElement('div');
+  s.className='shoot';
+  s.style.left = (Math.random()*60+20)+'vw';
+  s.style.top = (Math.random()*30+5)+'vh';
+  document.body.appendChild(s);
+  s.animate([
+    {transform:'translateX(0) translateY(0) rotate(-18deg)', opacity:0},
+    {opacity:1, offset:0.1},
+    {transform:'translateX(260px) translateY(80px) rotate(-18deg)', opacity:0}
+  ], {duration: 1200, easing:'cubic-bezier(.16,1,.3,1)'}).onfinish = ()=> s.remove();
+}
+
+let touchStartY=0;
+function next(){
+  if(idx < paragraphs.length-1){
+    idx++;
+    render(idx, 1);
+    if(idx===paragraphs.length-1) hint.classList.add('hide');
+  } else {
+    idx=0; render(0); hint.classList.remove('hide');
+  }
+}
+function prev(){
+  if(idx>0){ idx--; render(idx,-1); }
+}
+
+content.addEventListener('click', next);
+window.addEventListener('keydown', e=>{ if(e.key==='ArrowRight'||e.key===' ') next(); if(e.key==='ArrowLeft') prev(); });
+
+window.addEventListener('touchstart', e=>{ touchStartY=e.touches[0].clientY; }, {passive:true});
+window.addEventListener('touchend', e=>{
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if(dy < -40) next();
+  if(dy > 50) prev();
+}, {passive:true});
+
+let mx=0, my=0;
+window.addEventListener('mousemove', e=>{
+  mx = (e.clientX/innerWidth - .5);
+  my = (e.clientY/innerHeight - .5);
+  sunWrap.style.transform = `translate(calc(-50% + ${mx*12}px), calc(-50% + ${my*8}px))`;
+  content.style.transform = `translate3d(${mx*-10}px, ${my*-6}px, 0)`;
+});
+
+resize();
+addEventListener('resize', resize);
+initStars();
+drawStars(0);
+render(0);
+
+// hide hint after first interaction
+let hintHidden=false;
+['click','touchstart','keydown'].forEach(ev=>{
+  window.addEventListener(ev, ()=>{ if(!hintHidden && idx>0){ hint.classList.add('hide'); hintHidden=true; } }, {once:false});
+});
+</script>
+</body>
+</html>
